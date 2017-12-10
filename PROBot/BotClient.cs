@@ -127,6 +127,7 @@ namespace PROBot
                 client.SystemMessage += Client_SystemMessage;
                 client.DialogOpened += Client_DialogOpened;
                 client.TeleportationOccuring += Client_TeleportationOccuring;
+                client.LogMessage += LogMessage;
             }
             ClientChanged?.Invoke();
         }
@@ -221,6 +222,9 @@ namespace PROBot
 
         public void Stop()
         {
+            if (Game != null)
+                Game.ClearPath();
+            
             if (Running != State.Stopped)
             {
                 Running = State.Stopped;

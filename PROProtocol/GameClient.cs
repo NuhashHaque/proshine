@@ -6,6 +6,9 @@ namespace PROProtocol
 {
     public class GameClient
     {
+        public InventoryItem GroundMount;
+        public InventoryItem WaterMount;
+        
         public Random Rand { get; private set; }
         public Language I18n { get; private set; }
 
@@ -92,8 +95,9 @@ namespace PROProtocol
         public event Action<string, string> PokeTimeUpdated;
         public event Action<Shop> ShopOpened;
         public event Action<List<Pokemon>> PCBoxUpdated;
-
-        private const string Version = "Sinnoh";
+        public event Action<string> LogMessage;
+        
+        private const string Version = "XMAS2017";
 
         private GameConnection _connection;
         private DateTime _lastMovement;
@@ -114,6 +118,11 @@ namespace PROProtocol
         private Timeout _refreshingPCBox = new Timeout();
 
         private MapClient _mapClient;
+
+        public void ClearPath()
+        {
+            _movements.Clear();
+        }
 
         public bool IsInactive
         {
@@ -248,6 +257,13 @@ namespace PROProtocol
 
             if (!_movementTimeout.IsActive && _movements.Count > 0)
             {
+                if (GroundMount != null && !_itemUseTimeout.IsActive && !IsBiking && !IsSurfing && Map.IsOutside)
+                {
+                    LogMessage?.Invoke($"Mounting [{GroundMount.Name}]");
+                    UseItem(GroundMount.Id);
+                    return;
+                }
+                
                 Direction direction = _movements[0];
                 _movements.RemoveAt(0);
 
@@ -429,6 +445,21 @@ namespace PROProtocol
             // DSSock.sendMSG
             string pmHeader = "/pm " + PlayerName + "-=-" + nickname;
             SendPacket("{|.|" + pmHeader + '|' + text);
+        }
+
+        public void SendStartPrivateMessage(string nickname)
+        {
+            SendMessage("/pm " + PlayerName + "-=-" + nickname);
+        }
+
+        public void SendFriendToggle(string nickname)
+        {
+            SendMessage("/friend " + nickname);
+        }
+
+        public void SendIgnoreToggle(string nickname)
+        {
+            SendMessage("/ignore " + nickname);
         }
 
         public void SendCreateCharacter(int hair, int colour, int tone, int clothe, int eyes)
@@ -747,10 +778,11 @@ namespace PROProtocol
 
         public bool HasSurfAbility()
         {
-            return HasMove("Surf") &&
+            return (HasMove("Surf") || WaterMount != null) &&
                 (Map.Region == "1" && HasItemName("Soul Badge") ||
                 Map.Region == "2" && HasItemName("Fog Badge") ||
-                Map.Region == "3" && HasItemName("Balance Badge"));
+                Map.Region == "3" && HasItemName("Balance Badge") ||
+                Map.Region == "4" && HasItemName("Relic Badge"));
         }
 
         public bool HasCutAbility()
@@ -758,7 +790,8 @@ namespace PROProtocol
             return (HasMove("Cut") || HasTreeaxe()) &&
                 (Map.Region == "1" && HasItemName("Cascade Badge") ||
                 Map.Region == "2" && HasItemName("Hive Badge") ||
-                Map.Region == "3" && HasItemName("Stone Badge"));
+                Map.Region == "3" && HasItemName("Stone Badge") ||
+                Map.Region == "4" && HasItemName("Forest Badge"));
         }
 
         public bool HasRockSmashAbility()
@@ -823,10 +856,19 @@ namespace PROProtocol
 
         public void UseSurf()
         {
-            SendMessage("/surf");
+            if (WaterMount == null)
+            {
+                SendMessage("/surf");
+            }
+            else
+            {
+                LogMessage?.Invoke($"Mounting [{WaterMount.Name}]");
+                UseItem(WaterMount.Id);
+            }
+            
             _mountingTimeout.Set();
         }
-
+        
         public void UseSurfAfterMovement()
         {
             _surfAfterMovement = true;
